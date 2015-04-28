@@ -11,6 +11,16 @@ local beautiful = require("beautiful")
 local naughty = require("naughty")
 local menubar = require("menubar")
 
+-- Override awesome.quit when we're using GNOME
+_awesome_quit = awesome.quit
+awesome.quit = function()
+    if os.getenv("DESKTOP_SESSION") == "awesome-gnome" then
+        os.execute("/usr/bin/gnome-session-quit")
+    else
+        _awesome_quit()
+    end
+end
+
 -- {{{ Error handling
 -- Check if awesome encountered an error during startup and fell back to
 -- another config (This code will only ever execute for the fallback config)
@@ -38,12 +48,12 @@ end
 
 -- {{{ Variable definitions
 -- Themes define colours, icons, font and wallpapers.
-beautiful.init("/usr/share/awesome/themes/default/theme.lua")
+beautiful.init(awful.util.getdir("config") .. "/current_theme/theme.lua")
 
 -- This is used later as the default terminal and editor to run.
-terminal = "xterm"
-editor = os.getenv("EDITOR") or "vi"
-editor_cmd = terminal .. " -e " .. editor
+terminal = "gnome-terminal"
+editor = os.getenv("EDITOR") or "gvim"
+editor_cmd = editor
 
 -- Default modkey.
 -- Usually, Mod4 is the key with a logo between Control and Alt.
@@ -89,9 +99,36 @@ end
 
 -- {{{ Menu
 -- Create a laucher widget and a main menu
+mythememenu = {}
+
+function theme_load(theme)
+    local cfg_path = awful.util.getdir("config")
+
+    -- Create a symlink from the given theme to /home/user/.config/awesome/current_theme
+    awful.util.spawn("ln -sfn " .. cfg_path .. "/themes/" .. theme .. " " .. cfg_path .. "/current_theme")
+    awesome.restart()
+end
+
+function theme_menu()
+    -- List your theme files and feed the menu table
+    local cmd = "ls -1 " .. awful.util.getdir("config") .. "/themes/"
+    local f = io.popen(cmd)
+
+    for l in f:lines() do
+        local item = { l, function () theme_load(l) end }
+        table.insert(mythememenu, item)
+    end
+
+    f:close()
+end
+
+-- Generate your table at startup or restart
+theme_menu()
+
 myawesomemenu = {
    { "manual", terminal .. " -e man awesome" },
    { "edit config", editor_cmd .. " " .. awesome.conffile },
+   { "themes", mythememenu },
    { "restart", awesome.restart },
    { "quit", awesome.quit }
 }
@@ -106,6 +143,7 @@ mylauncher = awful.widget.launcher({ image = beautiful.awesome_icon,
 
 -- Menubar configuration
 menubar.utils.terminal = terminal -- Set the terminal for applications that require it
+-- menubar.menu_gen.all_menu_dirs = { "/usr/share/applications", "/usr/local/share/applications", "~/.local/share/applications" }
 -- }}}
 
 -- {{{ Wibox
@@ -271,7 +309,11 @@ globalkeys = awful.util.table.join(
                   awful.util.getdir("cache") .. "/history_eval")
               end),
     -- Menubar
-    awful.key({ modkey }, "p", function() menubar.show() end)
+    awful.key({ modkey }, "p", function() menubar.show() end),
+
+    -- Program Shortcuts
+    awful.key({ modkey,           }, "e",      function () awful.util.spawn("xfe-xfe") end),
+    awful.key({ modkey,           }, "l",      function () awful.util.spawn("i3lock -d") end)
 )
 
 clientkeys = awful.util.table.join(
